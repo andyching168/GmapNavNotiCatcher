@@ -6,7 +6,12 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +45,8 @@ fun NavigationScreen() {
     val viewModel: NavigationViewModel = NotificationCatcherApp.getInstance().getNavigationViewModel()
     val context = LocalContext.current
     val navigationInfo by viewModel.navigationInfo.collectAsStateWithLifecycle()
+    val unknownHashes by viewModel.unknownHashes.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
@@ -105,6 +112,62 @@ fun NavigationScreen() {
                     NavigationInfoItem("轉彎方向", navigationInfo.turnDirection)
                     NavigationInfoItem("時間", navigationInfo.duration)
                     NavigationInfoItem("預計到達", navigationInfo.eta)
+                }
+            }
+        }
+
+        // 未知哈希值列表
+        if (unknownHashes.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "未知哈希值列表",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                    ) {
+                        items(unknownHashes) { (timestamp, hash) ->
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        viewModel.copyHashToClipboard(context, "$timestamp - $hash")
+                                    }
+                                    .padding(8.dp)
+                            ) {
+                                Text(
+                                    text = timestamp,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = hash,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Divider(
+                                modifier = Modifier.padding(vertical = 4.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.1f)
+                            )
+                        }
+                    }
                 }
             }
         }

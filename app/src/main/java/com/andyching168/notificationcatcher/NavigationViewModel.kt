@@ -1,19 +1,28 @@
 package com.andyching168.notificationcatcher
 
 import android.content.Context
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.text.SimpleDateFormat
+import java.util.*
+import java.util.concurrent.TimeUnit
 
 class NavigationViewModel : ViewModel() {
     private val _navigationInfo = MutableStateFlow(NavigationInfo())
     val navigationInfo: StateFlow<NavigationInfo> = _navigationInfo.asStateFlow()
 
+    private val _unknownHashes = MutableStateFlow<List<Pair<String, String>>>(emptyList())
+    val unknownHashes: StateFlow<List<Pair<String, String>>> = _unknownHashes.asStateFlow()
+
     private var lastRawNotification: String = ""
     private var lastIconHash: String = ""
+    private var lastUnknownHash: String = ""
 
     // 哈希值對應表
     private val iconHashMap: Map<String, String> = mapOf(
@@ -23,6 +32,9 @@ class NavigationViewModel : ViewModel() {
         "0-39-39-0-0-175-175-0-0-63-63-0-0-31-31-0" to "straight", // 直行
         "0-47-119-0-0-79-191-0-23-111-0-0-31-31-0-0" to "side_right" // 靠右
     )
+
+    private val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    private val TIME_THRESHOLD = TimeUnit.SECONDS.toMillis(10) // 10秒時間閾值
 
     fun updateNavigationInfo(info: NavigationInfo) {
         _navigationInfo.value = info
@@ -39,7 +51,23 @@ class NavigationViewModel : ViewModel() {
             Log.d("NotificationCatcher", "圖標哈希值: $hash 對應方向: $direction")
         } else {
             Log.d("NotificationCatcher", "未知的圖標哈希值: $hash")
+            
+            // 只在哈希值變化時添加
+            if (lastUnknownHash != hash) {
+                val currentList = _unknownHashes.value.toMutableList()
+                val timestamp = dateFormat.format(Date())
+                currentList.add(timestamp to hash)
+                _unknownHashes.value = currentList
+                lastUnknownHash = hash
+            }
         }
+    }
+
+    fun copyHashToClipboard(context: Context, hash: String) {
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("Hash Value", hash)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, "已複製到剪貼簿", Toast.LENGTH_SHORT).show()
     }
 
     fun getLastTurnDirection(): String {
