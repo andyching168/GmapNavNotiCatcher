@@ -100,7 +100,9 @@ fun NavigationScreen() {
                     )
                 } else {
                     NavigationInfoItem("方向", navigationInfo.direction)
-                    NavigationInfoItem("距離", navigationInfo.distance)
+                    NavigationInfoItem("剩餘總距離", navigationInfo.totalDistance)
+                    NavigationInfoItem("轉彎距離", navigationInfo.turnDistance)
+                    NavigationInfoItem("轉彎方向", navigationInfo.turnDirection)
                     NavigationInfoItem("時間", navigationInfo.duration)
                     NavigationInfoItem("預計到達", navigationInfo.eta)
                 }

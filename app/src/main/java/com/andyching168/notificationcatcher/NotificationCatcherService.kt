@@ -5,7 +5,10 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import android.graphics.drawable.Icon
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.Bitmap
+import android.graphics.Color
 import java.security.MessageDigest
+import java.math.BigInteger
 
 class NotificationCatcherService : NotificationListenerService() {
     private lateinit var viewModel: NavigationViewModel
@@ -15,6 +18,27 @@ class NotificationCatcherService : NotificationListenerService() {
         viewModel = NotificationCatcherApp.getInstance().getNavigationViewModel()
         // 初始化時設置為沒有通知
         viewModel.updateNavigationInfo(NavigationInfo(hasNotification = false))
+    }
+
+    private fun simpleIconHash(bitmap: Bitmap): String {
+        val resized = Bitmap.createScaledBitmap(bitmap, 32, 32, true)
+        val grayscale = IntArray(32 * 32)
+        resized.getPixels(grayscale, 0, 32, 0, 0, 32, 32)
+
+        // 區域亮度平均值
+        val parts = 4
+        val avgByRegion = Array(parts * parts) { 0 }
+        for (y in 0 until 32) {
+            for (x in 0 until 32) {
+                val gray = Color.red(grayscale[y * 32 + x]) // 灰階代表亮度即可
+                val regionX = x / (32 / parts)
+                val regionY = y / (32 / parts)
+                val index = regionY * parts + regionX
+                avgByRegion[index] += gray
+            }
+        }
+
+        return avgByRegion.joinToString("-") { (it / ((32 / parts) * (32 / parts))).toString() }
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -50,21 +74,17 @@ class NotificationCatcherService : NotificationListenerService() {
                 val drawable = icon?.loadDrawable(this)
                 if (drawable is BitmapDrawable) {
                     val bitmap = drawable.bitmap
-                    // 獲取圖片的像素數據
-                    val pixels = IntArray(bitmap.width * bitmap.height)
-                    bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-                    
-                    // 計算簡單的哈希值
-                    val hash = pixels.fold(0) { acc, pixel ->
-                        acc + pixel
-                    }
+                    val hash = simpleIconHash(bitmap)
                     
                     Log.d("NotificationCatcher", """
                         圖標信息:
                         寬度: ${bitmap.width}
                         高度: ${bitmap.height}
-                        哈希值: $hash
+                        區域亮度哈希值: $hash
                     """.trimIndent())
+                    
+                    // 更新 ViewModel 中的哈希值
+                    viewModel.setLastIconHash(hash)
                 }
             } catch (e: Exception) {
                 Log.e("NotificationCatcher", "獲取圖標信息時出錯", e)
@@ -87,7 +107,8 @@ class NotificationCatcherService : NotificationListenerService() {
 
     private fun parseNavigationInfo(title: String, direction: String, subText: String): NavigationInfo {
         // 解析距離和時間
-        var distance = ""
+        var totalDistance = ""
+        var turnDistance = title  // 轉彎距離直接使用 title
         var duration = ""
         var eta = ""
 
@@ -96,34 +117,26 @@ class NotificationCatcherService : NotificationListenerService() {
             when {
                 part.contains("公尺") -> {
                     val meters = part.trim().replace("公尺", "").trim()
-                    distance = if (meters.toIntOrNull() ?: 0 >= 1000) {
+                    totalDistance = if (meters.toIntOrNull() ?: 0 >= 1000) {
                         "${(meters.toIntOrNull() ?: 0) / 1000.0} 公里"
                     } else {
                         "$meters 公尺"
                     }
                 }
-                part.contains("公里") -> distance = part.trim()
+                part.contains("公里") -> totalDistance = part.trim()
                 part.contains("分鐘") -> duration = part.trim()
                 part.contains("預計到達時間") -> eta = part.trim()
             }
         }
 
-        // 如果 subText 中沒有距離信息，則使用 title 中的距離
-        if (distance.isEmpty() && title.contains("公尺")) {
-            val meters = title.trim().replace("公尺", "").trim()
-            distance = if (meters.toIntOrNull() ?: 0 >= 1000) {
-                "${(meters.toIntOrNull() ?: 0) / 1000.0} 公里"
-            } else {
-                "$meters 公尺"
-            }
-        }
-
         val info = NavigationInfo(
             direction = direction,
-            distance = distance,
+            totalDistance = totalDistance,
+            turnDistance = turnDistance,
             duration = duration,
             eta = eta,
-            status = "導航中"
+            status = "導航中",
+            turnDirection = viewModel.getLastTurnDirection()  // 獲取轉彎方向
         )
         
         Log.d("NotificationCatcher", "解析結果: $info")
