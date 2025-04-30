@@ -84,7 +84,7 @@ class NotificationCatcherService : NotificationListenerService() {
                     """.trimIndent())
                     
                     // 更新 ViewModel 中的哈希值
-                    viewModel.setLastIconHash(hash)
+                    viewModel.setLastIconHash(hash, bitmap)
                 }
             } catch (e: Exception) {
                 Log.e("NotificationCatcher", "獲取圖標信息時出錯", e)

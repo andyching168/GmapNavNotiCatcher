@@ -3,8 +3,11 @@ package com.andyching168.notificationcatcher
 import android.content.Context
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.graphics.Bitmap
 import android.util.Log
 import android.widget.Toast
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,8 +20,8 @@ class NavigationViewModel : ViewModel() {
     private val _navigationInfo = MutableStateFlow(NavigationInfo())
     val navigationInfo: StateFlow<NavigationInfo> = _navigationInfo.asStateFlow()
 
-    private val _unknownHashes = MutableStateFlow<List<Pair<String, String>>>(emptyList())
-    val unknownHashes: StateFlow<List<Pair<String, String>>> = _unknownHashes.asStateFlow()
+    private val _unknownHashes = MutableStateFlow<List<Triple<String, String, Bitmap?>>>(emptyList())
+    val unknownHashes: StateFlow<List<Triple<String, String, Bitmap?>>> = _unknownHashes.asStateFlow()
 
     private var lastRawNotification: String = ""
     private var lastIconHash: String = ""
@@ -44,19 +47,18 @@ class NavigationViewModel : ViewModel() {
         lastRawNotification = raw
     }
 
-    fun setLastIconHash(hash: String) {
+    fun setLastIconHash(hash: String, bitmap: Bitmap? = null) {
         lastIconHash = hash
         val direction = iconHashMap[hash]
         if (direction != null) {
-            Log.d("NotificationCatcher", "圖標哈希值: $hash 對應方向: $direction")
+            val currentInfo = _navigationInfo.value
+            _navigationInfo.value = currentInfo.copy(turnDirection = direction)
         } else {
-            Log.d("NotificationCatcher", "未知的圖標哈希值: $hash")
-            
             // 只在哈希值變化時添加
             if (lastUnknownHash != hash) {
                 val currentList = _unknownHashes.value.toMutableList()
                 val timestamp = dateFormat.format(Date())
-                currentList.add(timestamp to hash)
+                currentList.add(Triple(timestamp, hash, bitmap))
                 _unknownHashes.value = currentList
                 lastUnknownHash = hash
             }
