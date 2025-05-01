@@ -3,7 +3,9 @@ package com.andyching168.notificationcatcher
 import android.content.Context
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.util.Log
 import android.widget.Toast
 import androidx.compose.ui.graphics.ImageBitmap
@@ -12,6 +14,7 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -47,6 +50,10 @@ class NavigationViewModel : ViewModel() {
         // 下交流道
         "47-15-99-15-95-139-171-103-95-75-43-3-47-15-0-0" to "ExitRight", // 下交流道(右)
         
+        //急轉
+        "0-0-51-19-47-79-91-103-119-171-0-95-0-0-0-47" to "SharpTurnLeft", // 向左後急轉
+        "19-51-0-0-103-91-79-47-95-0-171-119-47-0-0-0" to "SharpTurnRight", // 向右後急轉
+
         // 圓環
         "0-143-143-0-0-167-167-0-0-139-139-0-0-39-39-0" to "Roundabout", // 圓環
         "23-123-119-11-115-51-171-75-91-127-119-0-0-63-0-0" to "Exit1st", // 駛出圓環(4分之1)
@@ -56,7 +63,12 @@ class NavigationViewModel : ViewModel() {
         "0-51-115-15-11-115-23-107-75-203-51-95-0-15-0-47" to "UTurnLeft", // 迴轉（左）
         
         // 目的地
-        "99-131-11-0-119-111-39-11-67-167-203-143-0-55-91-103" to "DestinationLeft" // 目的地在左方
+        "99-131-11-0-119-111-39-11-67-167-203-143-0-55-91-103" to "DestinationLeft", // 目的地在左方
+        "0-11-131-99-11-39-115-119-143-203-167-67-103-91-55-0" to "DestinationRight", // 目的地在右方
+        "7-103-103-7-87-71-75-83-35-87-83-35-0-71-71-0" to "DestinationFront", // 目的地在前方
+
+        //其他
+        "0-0-0-0-0-0-0-0-0-0-0-0-0-0-0-0" to "Blank" // 空白
     )
 
     // 容錯值設定
@@ -145,5 +157,33 @@ class NavigationViewModel : ViewModel() {
             Log.d("NotificationCatcher", "目前沒有通知內容")
             Toast.makeText(context, "目前沒有通知內容", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    fun openGoogleMaps(context: Context) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=destination"))
+            intent.setPackage("com.google.android.apps.maps")
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "無法開啟 Google Maps", Toast.LENGTH_SHORT).show()
+            Log.e("NotificationCatcher", "開啟 Google Maps 失敗", e)
+        }
+    }
+
+    fun generateNavigationJson(): String {
+        val json = JSONObject().apply {
+            put("turnDirection", _navigationInfo.value.turnDirection)
+            put("direction", _navigationInfo.value.direction)
+            put("turnDistance", _navigationInfo.value.turnDistance)
+        }
+        return json.toString(4) // 使用 4 個空格進行格式化
+    }
+
+    fun copyJsonToClipboard(context: Context) {
+        val jsonString = generateNavigationJson()
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("Navigation Info", jsonString)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, "已複製到剪貼簿", Toast.LENGTH_SHORT).show()
     }
 } 

@@ -49,6 +49,7 @@ fun NavigationScreen() {
     val navigationInfo by viewModel.navigationInfo.collectAsStateWithLifecycle()
     val unknownHashes by viewModel.unknownHashes.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
+    var showJsonDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -67,13 +68,37 @@ fun NavigationScreen() {
             Text("開啟通知存取權限")
         }
 
-        // 顯示原始通知按鈕
-        Button(
-            onClick = {
-                viewModel.showRawNotification(context)
-            }
+        // 功能按鈕行
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Text("顯示原始通知")
+            // 顯示原始通知按鈕
+            Button(
+                onClick = {
+                    viewModel.showRawNotification(context)
+                }
+            ) {
+                Text("顯示原始通知")
+            }
+
+            // 開啟 Google Maps 按鈕
+            Button(
+                onClick = {
+                    viewModel.openGoogleMaps(context)
+                }
+            ) {
+                Text("開啟 Google Maps")
+            }
+
+            // 顯示 JSON 按鈕
+            Button(
+                onClick = {
+                    showJsonDialog = true
+                }
+            ) {
+                Text("顯示 JSON")
+            }
         }
 
         // 導航資訊顯示
@@ -147,29 +172,39 @@ fun NavigationScreen() {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable {
-                                        viewModel.copyHashToClipboard(context, "$timestamp - $hash")
-                                    }
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                if (bitmap != null) {
-                                    Image(
-                                        bitmap = bitmap.asImageBitmap(),
-                                        contentDescription = "未知圖標",
-                                        modifier = Modifier.size(32.dp)
-                                    )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (bitmap != null) {
+                                        Image(
+                                            bitmap = bitmap.asImageBitmap(),
+                                            contentDescription = "未知圖標",
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = timestamp,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            text = hash,
+                                            style = MaterialTheme.typography.bodyMedium
+                                        )
+                                    }
                                 }
-                                Column {
-                                    Text(
-                                        text = timestamp,
-                                        style = MaterialTheme.typography.bodySmall
-                                    )
-                                    Text(
-                                        text = hash,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
+                                Button(
+                                    onClick = {
+                                        viewModel.copyHashToClipboard(context, hash)
+                                    }
+                                ) {
+                                    Text("複製")
                                 }
                             }
                         }
@@ -177,6 +212,39 @@ fun NavigationScreen() {
                 }
             }
         }
+    }
+
+    // JSON 對話框
+    if (showJsonDialog) {
+        AlertDialog(
+            onDismissRequest = { showJsonDialog = false },
+            title = { Text("導航資訊 JSON") },
+            text = {
+                Column {
+                    Text(
+                        text = viewModel.generateNavigationJson(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.verticalScroll(rememberScrollState())
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.copyJsonToClipboard(context)
+                    }
+                ) {
+                    Text("複製")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showJsonDialog = false }
+                ) {
+                    Text("關閉")
+                }
+            }
+        )
     }
 }
 
