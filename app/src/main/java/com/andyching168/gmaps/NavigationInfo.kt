@@ -1,4 +1,4 @@
-package com.andyching168.notificationcatcher
+package com.andyching168.gmaps
 
 data class NavigationInfo(
     val direction: String = "",

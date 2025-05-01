@@ -1,4 +1,4 @@
-package com.andyching168.notificationcatcher.ui.theme
+package com.andyching168.gmaps.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

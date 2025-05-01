@@ -1,4 +1,4 @@
-package com.andyching168.notificationcatcher.ui.theme
+package com.andyching168.gmaps.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

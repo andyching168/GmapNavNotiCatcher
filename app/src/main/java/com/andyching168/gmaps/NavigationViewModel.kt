@@ -1,4 +1,4 @@
-package com.andyching168.notificationcatcher
+package com.andyching168.gmaps
 
 import android.content.Context
 import android.content.ClipData
@@ -18,6 +18,10 @@ import org.json.JSONObject
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
+import com.xiaomi.xms.wearable.Wearable
+import com.xiaomi.xms.wearable.auth.Permission
+import com.xiaomi.xms.wearable.node.Node
+import com.xiaomi.xms.wearable.node.NodeApi
 
 class NavigationViewModel : ViewModel() {
     private val _navigationInfo = MutableStateFlow(NavigationInfo())
@@ -29,6 +33,20 @@ class NavigationViewModel : ViewModel() {
     private var lastRawNotification: String = ""
     private var lastIconHash: String = ""
     private var lastUnknownHash: String = ""
+
+    // 小米手環相關
+    private var nodeId: String? = null
+    private var currentNode: Node? = null
+    private lateinit var nodeApi: NodeApi
+    private var isWearableInitialized = false
+    
+    // 手環連接狀態
+    private val _wearableConnectionStatus = MutableStateFlow("未連接")
+    val wearableConnectionStatus: StateFlow<String> = _wearableConnectionStatus.asStateFlow()
+
+    // 日誌
+    private val _logs = MutableStateFlow<List<String>>(emptyList())
+    val logs: StateFlow<List<String>> = _logs.asStateFlow()
 
     // 哈希值對應表
     private val iconHashMap: Map<String, String> = mapOf(
@@ -112,8 +130,131 @@ class NavigationViewModel : ViewModel() {
     private val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private val TIME_THRESHOLD = TimeUnit.SECONDS.toMillis(10) // 10秒時間閾值
 
+    // 初始化小米手環相關API
+    fun initializeWearable(context: Context) {
+        try {
+            if (!isWearableInitialized) {
+                nodeApi = Wearable.getNodeApi(context)
+                isWearableInitialized = true
+                log("初始化 Wearable API 成功")
+                queryConnectedDevices(context)
+            }
+        } catch (e: Exception) {
+            log("初始化 Wearable API 失敗: ${e.message}")
+        }
+    }
+    
+    // 查詢已連接的設備
+    fun queryConnectedDevices(context: Context) {
+        if (!isWearableInitialized) {
+            log("Wearable API 尚未初始化")
+            return
+        }
+        
+        nodeApi.connectedNodes.addOnSuccessListener { nodes ->
+            if (nodes.isNotEmpty()) {
+                currentNode = nodes[0]
+                nodeId = currentNode?.id
+                _wearableConnectionStatus.value = "已連接: ${currentNode?.name}"
+                log("已連接設備: ${currentNode?.name}")
+                checkAndRequestPermissions(context)
+            } else {
+                _wearableConnectionStatus.value = "未發現已連接的設備"
+                log("未發現已連接的設備")
+            }
+        }.addOnFailureListener { e ->
+            _wearableConnectionStatus.value = "查詢設備失敗"
+            log("查詢已連接設備失敗: ${e.message}")
+        }
+    }
+    
+    // 檢查並請求權限
+    private fun checkAndRequestPermissions(context: Context) {
+        nodeId?.let { did ->
+            val authApi = Wearable.getAuthApi(context)
+            authApi.checkPermission(did, Permission.DEVICE_MANAGER)
+                .addOnSuccessListener { granted ->
+                    if (!granted) {
+                        authApi.requestPermission(did, Permission.DEVICE_MANAGER)
+                            .addOnSuccessListener {
+                                log("已獲取設備管理權限")
+                            }.addOnFailureListener { e ->
+                                log("請求設備管理權限失敗: ${e.message}")
+                            }
+                    } else {
+                        log("已有設備管理權限")
+                    }
+                }.addOnFailureListener { e ->
+                    log("檢查權限失敗: ${e.message}")
+                }
+        } ?: log("沒有連接的設備，無法檢查權限")
+    }
+    
+    // 開啟手環應用
+    fun openWearableApp(context: Context) {
+        nodeId?.let { nid ->
+            nodeApi.isWearAppInstalled(nid)
+                .addOnSuccessListener {
+                    nodeApi.launchWearApp(nid,"pages/index")
+                        .addOnSuccessListener {
+                            log("成功開啟手環端應用")
+                            Toast.makeText(context, "已開啟手環端應用", Toast.LENGTH_SHORT).show()
+                        }.addOnFailureListener { e ->
+                            log("開啟手環端應用失敗: ${e.message}")
+                            Toast.makeText(context, "開啟手環端應用失敗", Toast.LENGTH_SHORT).show()
+                        }
+                }
+                .addOnFailureListener {
+                    log("手環未安裝相應小程式")
+                    Toast.makeText(context, "手環未安裝相應小程式，請先安裝", Toast.LENGTH_SHORT).show()
+                }
+        } ?: Toast.makeText(context, "未連接到設備", Toast.LENGTH_SHORT).show()
+    }
+    
+    // 發送導航資訊到手環
+    fun sendNavigationDataToWearable(context: Context) {
+        val jsonData = generateNavigationJson()
+        sendMessageToWearable(context, jsonData)
+    }
+    
+    // 發送訊息到手環
+    private fun sendMessageToWearable(context: Context, message: String) {
+        nodeId?.let { nid ->
+            val messageApi = Wearable.getMessageApi(context)
+            messageApi.sendMessage(nid, message.toByteArray())
+                .addOnSuccessListener {
+                    log("成功發送訊息: $message")
+                    Toast.makeText(context, "已發送到手環", Toast.LENGTH_SHORT).show()
+                }
+                .addOnFailureListener { e ->
+                    log("發送訊息失敗: ${e.message}")
+                    Toast.makeText(context, "發送訊息失敗", Toast.LENGTH_SHORT).show()
+                }
+        } ?: Toast.makeText(context, "未連接到設備", Toast.LENGTH_SHORT).show()
+    }
+    
+    // 添加日誌
+    private fun log(message: String) {
+        val currentLogs = _logs.value.toMutableList()
+        currentLogs.add("${getCurrentTime()} - $message")
+        // 保留最近的 50 條日誌
+        if (currentLogs.size > 50) {
+            currentLogs.removeAt(0)
+        }
+        _logs.value = currentLogs
+    }
+    
+    // 獲取當前時間
+    private fun getCurrentTime(): String {
+        return SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+    }
+
     fun updateNavigationInfo(info: NavigationInfo) {
         _navigationInfo.value = info
+        
+        // 當收到新的導航資訊時，自動發送到手環（可選）
+        // 如果啟用此功能，請取消下面這行的註釋
+        // navigationInfo.value.context?.let { sendNavigationDataToWearable(it) }
     }
 
     fun setLastRawNotification(raw: String) {
@@ -173,8 +314,8 @@ class NavigationViewModel : ViewModel() {
     fun generateNavigationJson(): String {
         val json = JSONObject().apply {
             put("turnDirection", _navigationInfo.value.turnDirection)
-            put("direction", _navigationInfo.value.direction)
             put("turnDistance", _navigationInfo.value.turnDistance)
+            put("direction", _navigationInfo.value.direction)
         }
         return json.toString(4) // 使用 4 個空格進行格式化
     }

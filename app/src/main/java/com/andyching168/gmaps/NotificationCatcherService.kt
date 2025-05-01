@@ -1,4 +1,4 @@
-package com.andyching168.notificationcatcher
+package com.andyching168.gmaps
 
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -94,6 +94,14 @@ class NotificationCatcherService : NotificationListenerService() {
             Log.d("NotificationCatcher", "解析後的資訊: direction=${info.direction}")
             viewModel.updateNavigationInfo(info.copy(hasNotification = true))
             Log.d("NotificationCatcher", "更新導航資訊: $info")
+            
+            // 自動發送導航資訊到小米手環
+            try {
+                viewModel.sendNavigationDataToWearable(applicationContext)
+                Log.d("NotificationCatcher", "已自動發送導航資訊到手環")
+            } catch (e: Exception) {
+                Log.e("NotificationCatcher", "發送導航資訊到手環失敗", e)
+            }
         }
     }
 

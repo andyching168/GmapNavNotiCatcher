@@ -1,4 +1,4 @@
-package com.andyching168.notificationcatcher.ui.theme
+package com.andyching168.gmaps.ui.theme
 
 import android.app.Activity
 import android.os.Build
@@ -34,7 +34,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 @Composable
-fun NotificationCatcherTheme(
+fun GoogleMapsTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,

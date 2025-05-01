@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.andyching168.notificationcatcher"
+    namespace = "com.andyching168.gmaps"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.andyching168.notificationcatcher"
+        applicationId = "com.andyching168.gmaps"
         minSdk = 31
         targetSdk = 34
         versionCode = 1
@@ -49,6 +49,9 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    
+    // 小米手環 VelaOS SDK
+    implementation(files("libs/xms-wearable-lib_1.4_release.aar"))
     
     // 添加 ViewModel 相關依賴
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")

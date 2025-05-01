@@ -1,4 +1,4 @@
-package com.andyching168.notificationcatcher
+package com.andyching168.gmaps
 
 import android.app.Application
 import androidx.lifecycle.ViewModelProvider

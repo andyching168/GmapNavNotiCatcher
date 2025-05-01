@@ -147,3 +147,60 @@ private val iconHashMap: Map<String, String> = mapOf(
 ## 授權
 
 MIT License 
+
+# 小米手環導航訊息同步應用程式
+
+這個應用程式可以捕獲 Google Maps 的導航通知，並將導航資訊同步到小米手環的快應用上顯示。
+
+## 配置說明
+
+### 配置包名一致性
+
+對於正確的通訊，安卓應用程式和快應用必須保持包名一致：
+
+1. 安卓應用程式包名已設定為：`com.andyching168.gmaps`
+2. 快應用的 manifest.json 中的 package 字段也必須設為：`com.andyching168.gmaps`
+
+### 簽名配置步驟
+
+為了確保應用程式間的通訊，您需要使用相同的簽名：
+
+1. **從 JKS 轉換為 P12 格式**
+   ```shell
+   keytool -importkeystore -srckeystore keystore.jks -destkeystore keystore.p12 -srcstoretype jks -deststoretype pkcs12
+   ```
+
+2. **從 P12 轉換為 PEM 格式**
+   ```shell
+   openssl pkcs12 -nodes -in keystore.p12 -out keystore.pem
+   ```
+
+3. **從 PEM 提取私鑰和證書**
+   - 將 `-----BEGIN PRIVATE KEY-----` 到 `-----END PRIVATE KEY-----` 的內容複製到 `private.pem` 中
+   - 將 `-----BEGIN CERTIFICATE-----` 到 `-----END CERTIFICATE-----` 的內容複製到 `certificate.pem` 中
+
+4. **配置快應用簽名**
+   - 將上述產生的 `private.pem` 和 `certificate.pem` 放在快應用根目錄的 `/sign/debug` 和 `/sign/release` 目錄下
+
+### 安裝測試注意事項
+
+在真機測試時，建議先卸載舊版本再安裝新版本：
+
+```shell
+adb uninstall com.andyching168.gmaps
+```
+
+然後再安裝新版本以確保完全替換。
+
+## 功能說明
+
+1. **通知捕獲**：捕獲 Google Maps 導航通知
+2. **資訊解析**：解析導航方向、距離等資訊
+3. **手環同步**：自動將資訊發送到小米手環快應用
+
+## 手環操作
+
+- 在手機上開啟應用程式
+- 確保手環已連接
+- 點擊「開啟手環應用」按鈕開啟快應用
+- 開始 Google Maps 導航，資訊將自動同步到手環 

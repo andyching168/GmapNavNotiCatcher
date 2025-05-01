@@ -1,4 +1,4 @@
-package com.andyching168.notificationcatcher
+package com.andyching168.gmaps
 
 import android.content.Intent
 import android.os.Bundle
@@ -23,14 +23,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.andyching168.notificationcatcher.ui.theme.NotificationCatcherTheme
+import com.andyching168.gmaps.ui.theme.GoogleMapsTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            NotificationCatcherTheme {
+            GoogleMapsTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -48,8 +48,15 @@ fun NavigationScreen() {
     val context = LocalContext.current
     val navigationInfo by viewModel.navigationInfo.collectAsStateWithLifecycle()
     val unknownHashes by viewModel.unknownHashes.collectAsStateWithLifecycle()
+    val wearableStatus by viewModel.wearableConnectionStatus.collectAsStateWithLifecycle()
+    val logs by viewModel.logs.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     var showJsonDialog by remember { mutableStateOf(false) }
+    
+    // 初始化小米手環API
+    LaunchedEffect(key1 = Unit) {
+        viewModel.initializeWearable(context)
+    }
 
     Column(
         modifier = Modifier
@@ -101,6 +108,66 @@ fun NavigationScreen() {
             }
         }
 
+        // 小米手環連接狀態卡片
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "小米手環連接狀態",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                Text(
+                    text = wearableStatus,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = if (wearableStatus.startsWith("已連接")) 
+                                MaterialTheme.colorScheme.primary 
+                            else 
+                                MaterialTheme.colorScheme.error
+                )
+                
+                // 手環操作按鈕
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(
+                        onClick = {
+                            viewModel.queryConnectedDevices(context)
+                        }
+                    ) {
+                        Text("重新連接")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            viewModel.openWearableApp(context)
+                        }
+                    ) {
+                        Text("開啟手環應用")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            viewModel.sendNavigationDataToWearable(context)
+                        }
+                    ) {
+                        Text("發送資料")
+                    }
+                }
+            }
+        }
+
         // 導航資訊顯示
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -139,6 +206,43 @@ fun NavigationScreen() {
                     NavigationInfoItem("轉彎方向", navigationInfo.turnDirection)
                     NavigationInfoItem("時間", navigationInfo.duration)
                     NavigationInfoItem("預計到達", navigationInfo.eta)
+                }
+            }
+        }
+
+        // 日誌顯示卡片
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "操作日誌",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) {
+                    items(logs) { log ->
+                        Text(
+                            text = log,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
         }
