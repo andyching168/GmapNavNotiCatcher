@@ -29,12 +29,73 @@ class NavigationViewModel : ViewModel() {
 
     // 哈希值對應表
     private val iconHashMap: Map<String, String> = mapOf(
-        "0-0-59-3-71-99-151-123-95-0-71-11-47-0-0-0" to "right",  // 右轉
+        // 基本方向
         "3-59-0-0-123-151-99-71-11-71-0-95-0-0-0-47" to "left",   // 左轉
+        "0-0-59-3-71-99-151-123-95-0-71-11-47-0-0-0" to "right",  // 右轉
         "0-39-39-0-0-175-175-0-0-55-55-0-0-23-23-0" to "straight", // 直行
         "0-39-39-0-0-175-175-0-0-63-63-0-0-31-31-0" to "straight", // 直行
-        "0-47-119-0-0-79-191-0-23-111-0-0-31-31-0-0" to "side_right" // 靠右
+        "0-39-39-0-0-175-175-0-0-139-135-0-7-55-55-3" to "GoStraight", // 直行(接到下一個路）
+        
+        // 靠左/靠右
+        "0-119-47-0-0-191-79-0-0-0-111-23-0-0-31-31" to "side_left", // 靠左
+        "0-47-119-0-0-79-191-0-23-111-0-0-31-31-0-0" to "side_right", // 靠右
+        
+        // 分岔路
+        "0-23-111-47-43-127-155-95-0-139-11-0-0-63-0-0" to "ForkRight", // 分岔路（靠右）
+        "47-111-11-3-95-171-131-43-0-11-139-0-0-0-63-0" to "ForkLeft", // 分岔路（靠左）
+        
+        // 下交流道
+        "47-15-99-15-95-139-171-103-95-75-43-3-47-15-0-0" to "ExitRight", // 下交流道(右)
+        
+        // 圓環
+        "0-143-143-0-0-167-167-0-0-139-139-0-0-39-39-0" to "Roundabout", // 圓環
+        "23-123-119-11-115-51-171-75-91-127-119-0-0-63-0-0" to "Exit1st", // 駛出圓環(4分之1)
+        "0-59-79-0-0-131-159-3-39-131-147-3-0-0-39-15" to "Exit2nd", // 駛出圓環(2分之1)
+        
+        // 迴轉
+        "0-51-115-15-11-115-23-107-75-203-51-95-0-15-0-47" to "UTurnLeft", // 迴轉（左）
+        
+        // 目的地
+        "99-131-11-0-119-111-39-11-67-167-203-143-0-55-91-103" to "DestinationLeft" // 目的地在左方
     )
+
+    // 容錯值設定
+    private val TOLERANCE = 30
+
+    // 比較兩個哈希值是否在容錯範圍內
+    private fun isHashSimilar(hash1: String, hash2: String): Boolean {
+        val parts1 = hash1.split("-").map { it.toInt() }
+        val parts2 = hash2.split("-").map { it.toInt() }
+        
+        if (parts1.size != parts2.size) return false
+        
+        val differences = parts1.zip(parts2).map { (p1, p2) -> Math.abs(p1 - p2) }
+        val maxDiff = differences.maxOrNull() ?: 0
+        
+        // 記錄最大差異，方便調試
+        if (maxDiff > 20) {
+            Log.d("NotificationCatcher", """
+                哈希值比較:
+                原始: $hash1
+                當前: $hash2
+                最大差異: $maxDiff
+                差異分布: ${differences.joinToString(", ")}
+            """.trimIndent())
+        }
+        
+        return differences.all { it <= TOLERANCE }
+    }
+
+    // 根據哈希值獲取方向（帶容錯）
+    private fun getDirectionWithTolerance(hash: String): String? {
+        val direction = iconHashMap.entries.find { isHashSimilar(it.key, hash) }?.value
+        if (direction != null) {
+            Log.d("NotificationCatcher", "成功匹配方向: $direction")
+        } else {
+            Log.d("NotificationCatcher", "未找到匹配的方向，當前哈希值: $hash")
+        }
+        return direction
+    }
 
     private val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
     private val TIME_THRESHOLD = TimeUnit.SECONDS.toMillis(10) // 10秒時間閾值
@@ -49,7 +110,7 @@ class NavigationViewModel : ViewModel() {
 
     fun setLastIconHash(hash: String, bitmap: Bitmap? = null) {
         lastIconHash = hash
-        val direction = iconHashMap[hash]
+        val direction = getDirectionWithTolerance(hash)
         if (direction != null) {
             val currentInfo = _navigationInfo.value
             _navigationInfo.value = currentInfo.copy(turnDirection = direction)

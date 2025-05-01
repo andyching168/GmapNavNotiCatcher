@@ -129,6 +129,8 @@ class NotificationCatcherService : NotificationListenerService() {
             }
         }
 
+        // 獲取當前導航信息，保留已設置的 turnDirection
+        val currentInfo = viewModel.navigationInfo.value
         val info = NavigationInfo(
             direction = direction,
             totalDistance = totalDistance,
@@ -136,7 +138,8 @@ class NotificationCatcherService : NotificationListenerService() {
             duration = duration,
             eta = eta,
             status = "導航中",
-            turnDirection = viewModel.getLastTurnDirection()  // 獲取轉彎方向
+            turnDirection = currentInfo.turnDirection,  // 保留已設置的轉彎方向
+            hasNotification = true
         )
         
         Log.d("NotificationCatcher", "解析結果: $info")
