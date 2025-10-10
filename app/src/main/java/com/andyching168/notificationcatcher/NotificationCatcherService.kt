@@ -15,9 +15,51 @@ class NotificationCatcherService : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d("NotificationCatcher", "Service onCreate - 服務已創建")
         viewModel = NotificationCatcherApp.getInstance().getNavigationViewModel()
         // 初始化時設置為沒有通知
         viewModel.updateNavigationInfo(NavigationInfo(hasNotification = false))
+    }
+
+    override fun onListenerConnected() {
+        super.onListenerConnected()
+        Log.d("NotificationCatcher", "Service onListenerConnected - 服務已連接到系統")
+        
+        // 服務連接時，檢查是否有現存的 Google Maps 通知
+        try {
+            val activeNotifications = activeNotifications
+            Log.d("NotificationCatcher", "當前活躍通知數量: ${activeNotifications?.size ?: 0}")
+            
+            if (activeNotifications != null) {
+                var foundGoogleMaps = false
+                for (sbn in activeNotifications) {
+                    Log.d("NotificationCatcher", "檢查通知: ${sbn.packageName}")
+                    if (sbn.packageName == "com.google.android.apps.maps") {
+                        Log.d("NotificationCatcher", "✓ 發現現存的 Google Maps 通知，立即處理")
+                        foundGoogleMaps = true
+                        onNotificationPosted(sbn)
+                        break
+                    }
+                }
+                if (!foundGoogleMaps) {
+                    Log.d("NotificationCatcher", "未發現 Google Maps 通知")
+                }
+            } else {
+                Log.d("NotificationCatcher", "activeNotifications 為 null")
+            }
+        } catch (e: Exception) {
+            Log.e("NotificationCatcher", "檢查現存通知時出錯", e)
+        }
+    }
+
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        Log.d("NotificationCatcher", "Service onListenerDisconnected - 服務已斷開連接")
+        // 服務斷線時，清空導航資訊
+        viewModel.updateNavigationInfo(NavigationInfo(hasNotification = false))
+        
+        // 嘗試重新連接
+        requestRebind(android.content.ComponentName(this, NotificationCatcherService::class.java))
     }
 
     private fun simpleIconHash(bitmap: Bitmap): String {
@@ -125,7 +167,10 @@ class NotificationCatcherService : NotificationListenerService() {
                 }
                 part.contains("公里") -> totalDistance = part.trim()
                 part.contains("分鐘") -> duration = part.trim()
-                part.contains("預計到達時間") -> eta = part.trim()
+                part.contains("預計到達時間") -> {
+                    // 移除「預計到達時間：」前綴，只保留時間
+                    eta = part.trim().replace("預計到達時間：", "").replace("預計到達時間", "").trim()
+                }
             }
         }
 

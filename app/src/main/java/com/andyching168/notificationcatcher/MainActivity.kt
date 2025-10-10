@@ -1,5 +1,7 @@
 package com.andyching168.notificationcatcher
 
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
@@ -40,6 +42,56 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        android.util.Log.d("MainActivity", "onResume called")
+        // 每次 Activity 恢復時，確保 Service 已啟用並嘗試重新連接
+        ensureServiceEnabled()
+    }
+
+    private fun ensureServiceEnabled() {
+        val isEnabled = isNotificationServiceEnabled()
+        android.util.Log.d("MainActivity", "Service enabled: $isEnabled")
+        if (isEnabled) {
+            // 權限已啟用，嘗試重新啟動服務以確保連接
+            android.util.Log.d("MainActivity", "Requesting rebind...")
+            requestRebind()
+        }
+    }
+
+    private fun isNotificationServiceEnabled(): Boolean {
+        val packageName = packageName
+        val flat = Settings.Secure.getString(
+            contentResolver,
+            "enabled_notification_listeners"
+        )
+        if (flat.isNullOrEmpty()) {
+            return false
+        }
+        val names = flat.split(":").toTypedArray()
+        for (name in names) {
+            val cn = ComponentName.unflattenFromString(name)
+            if (cn != null) {
+                if (packageName == cn.packageName) {
+                    return true
+                }
+            }
+        }
+        return false
+    }
+
+    private fun requestRebind() {
+        try {
+            // 請求系統重新綁定 NotificationListenerService
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                val componentName = ComponentName(this, NotificationCatcherService::class.java)
+                android.service.notification.NotificationListenerService.requestRebind(componentName)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }
 
 @Composable
@@ -50,6 +102,27 @@ fun NavigationScreen() {
     val unknownHashes by viewModel.unknownHashes.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
     var showJsonDialog by remember { mutableStateOf(false) }
+    var showRawNotificationDialog by remember { mutableStateOf(false) }
+    
+    // 檢查通知權限狀態
+    var isServiceEnabled by remember {
+        mutableStateOf(isNotificationServiceEnabled(context))
+    }
+
+    // 使用 DisposableEffect 來監聽生命週期變化
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                // 當畫面恢復時重新檢查權限狀態
+                isServiceEnabled = isNotificationServiceEnabled(context)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -58,6 +131,43 @@ fun NavigationScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // 權限狀態卡片
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isServiceEnabled) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.errorContainer
+                }
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = if (isServiceEnabled) "✓ 通知存取權限已啟用" else "✗ 通知存取權限未啟用",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isServiceEnabled) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    }
+                )
+                if (!isServiceEnabled) {
+                    Text(
+                        text = "請點擊下方按鈕開啟通知存取權限",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+        }
+        
         // 權限設定按鈕
         Button(
             onClick = {
@@ -68,36 +178,43 @@ fun NavigationScreen() {
             Text("開啟通知存取權限")
         }
 
-        // 功能按鈕行
-        Row(
+        // 功能按鈕區
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // 顯示原始通知按鈕
-            Button(
-                onClick = {
-                    viewModel.showRawNotification(context)
-                }
+            // 第一行：顯示原始通知 和 顯示 JSON
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("顯示原始通知")
+                Button(
+                    onClick = {
+                        showRawNotificationDialog = true
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("顯示原始通知")
+                }
+
+                Button(
+                    onClick = {
+                        showJsonDialog = true
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("顯示 JSON")
+                }
             }
 
-            // 開啟 Google Maps 按鈕
+            // 第二行：開啟 Google Maps（置中）
             Button(
                 onClick = {
                     viewModel.openGoogleMaps(context)
-                }
+                },
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text("開啟 Google Maps")
-            }
-
-            // 顯示 JSON 按鈕
-            Button(
-                onClick = {
-                    showJsonDialog = true
-                }
-            ) {
-                Text("顯示 JSON")
             }
         }
 
@@ -246,6 +363,39 @@ fun NavigationScreen() {
             }
         )
     }
+
+    // 原始通知對話框
+    if (showRawNotificationDialog) {
+        AlertDialog(
+            onDismissRequest = { showRawNotificationDialog = false },
+            title = { Text("原始通知內容") },
+            text = {
+                Column {
+                    Text(
+                        text = viewModel.getLastRawNotification(),
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.verticalScroll(rememberScrollState())
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.copyRawNotificationToClipboard(context)
+                    }
+                ) {
+                    Text("複製")
+                }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { showRawNotificationDialog = false }
+                ) {
+                    Text("關閉")
+                }
+            }
+        )
+    }
 }
 
 @Composable
@@ -265,4 +415,26 @@ fun NavigationInfoItem(label: String, value: String) {
             fontWeight = FontWeight.Bold
         )
     }
+}
+
+// 檢查通知監聽服務是否已啟用
+fun isNotificationServiceEnabled(context: Context): Boolean {
+    val packageName = context.packageName
+    val flat = Settings.Secure.getString(
+        context.contentResolver,
+        "enabled_notification_listeners"
+    )
+    if (flat.isNullOrEmpty()) {
+        return false
+    }
+    val names = flat.split(":").toTypedArray()
+    for (name in names) {
+        val cn = ComponentName.unflattenFromString(name)
+        if (cn != null) {
+            if (packageName == cn.packageName) {
+                return true
+            }
+        }
+    }
+    return false
 }

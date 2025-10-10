@@ -120,6 +120,21 @@ class NavigationViewModel : ViewModel() {
         lastRawNotification = raw
     }
 
+    fun getLastRawNotification(): String {
+        return lastRawNotification.ifEmpty { "目前沒有原始通知內容" }
+    }
+
+    fun copyRawNotificationToClipboard(context: Context) {
+        if (lastRawNotification.isNotEmpty()) {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clip = ClipData.newPlainText("Raw Notification", lastRawNotification)
+            clipboard.setPrimaryClip(clip)
+            Toast.makeText(context, "已複製到剪貼簿", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "沒有可複製的內容", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     fun setLastIconHash(hash: String, bitmap: Bitmap? = null) {
         lastIconHash = hash
         val direction = getDirectionWithTolerance(hash)
@@ -149,21 +164,18 @@ class NavigationViewModel : ViewModel() {
         return iconHashMap[lastIconHash] ?: ""
     }
 
-    fun showRawNotification(context: Context) {
-        if (lastRawNotification.isNotEmpty()) {
-            Log.d("NotificationCatcher", "顯示原始通知內容:\n$lastRawNotification")
-            Toast.makeText(context, lastRawNotification, Toast.LENGTH_LONG).show()
-        } else {
-            Log.d("NotificationCatcher", "目前沒有通知內容")
-            Toast.makeText(context, "目前沒有通知內容", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     fun openGoogleMaps(context: Context) {
         try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=destination"))
-            intent.setPackage("com.google.android.apps.maps")
-            context.startActivity(intent)
+            // 直接打開 Google Maps 主畫面（不啟動導航）
+            val intent = context.packageManager.getLaunchIntentForPackage("com.google.android.apps.maps")
+            if (intent != null) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(intent)
+            } else {
+                // 如果 Google Maps 未安裝，打開 Play Store
+                val playStoreIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=com.google.android.apps.maps"))
+                context.startActivity(playStoreIntent)
+            }
         } catch (e: Exception) {
             Toast.makeText(context, "無法開啟 Google Maps", Toast.LENGTH_SHORT).show()
             Log.e("NotificationCatcher", "開啟 Google Maps 失敗", e)
