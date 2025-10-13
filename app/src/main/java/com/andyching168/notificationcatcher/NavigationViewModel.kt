@@ -34,7 +34,9 @@ class NavigationViewModel : ViewModel() {
     private val iconHashMap: Map<String, String> = mapOf(
         // 基本方向
         "3-59-0-0-123-151-99-71-11-71-0-95-0-0-0-47" to "left",   // 左轉
+        "0-63-0-0-127-175-127-71-11-79-0-127-0-0-0-63" to "left",
         "0-0-59-3-71-99-151-123-95-0-71-11-47-0-0-0" to "right",  // 右轉
+        "0-0-63-3-71-127-175-127-127-0-79-11-63-0-0-0" to "right",
         "0-39-39-0-0-175-175-0-0-55-55-0-0-23-23-0" to "straight", // 直行
         "0-39-39-0-0-175-175-0-0-63-63-0-0-31-31-0" to "straight", // 直行
         "0-39-39-0-0-175-175-0-0-139-135-0-7-55-55-3" to "GoStraight", // 直行(接到下一個路）
@@ -58,10 +60,10 @@ class NavigationViewModel : ViewModel() {
         "0-143-143-0-0-167-167-0-0-139-139-0-0-39-39-0" to "Roundabout", // 圓環
         "23-123-119-11-115-51-171-75-91-127-119-0-0-63-0-0" to "Exit1st", // 駛出圓環(4分之1)
         "0-59-79-0-0-131-159-3-39-131-147-3-0-0-39-15" to "Exit2nd", // 駛出圓環(2分之1)
-        
+
         // 迴轉
         "0-51-115-15-11-115-23-107-75-203-51-95-0-15-0-47" to "UTurnLeft", // 迴轉（左）
-        
+
         // 目的地
         "99-131-11-0-119-111-39-11-67-167-203-143-0-55-91-103" to "DestinationLeft", // 目的地在左方
         "0-11-131-99-11-39-115-119-143-203-167-67-103-91-55-0" to "DestinationRight", // 目的地在右方
@@ -110,7 +112,6 @@ class NavigationViewModel : ViewModel() {
     }
 
     private val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    private val TIME_THRESHOLD = TimeUnit.SECONDS.toMillis(10) // 10秒時間閾值
 
     fun updateNavigationInfo(info: NavigationInfo) {
         _navigationInfo.value = info
